@@ -3,153 +3,520 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Осада — проверка каркаса</title>
+<title>Осада — Экран боя</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#x5BA8;</text></svg>">
 <style>
   :root {
     --bg: #14110f;
     --panel: #1c1917;
+    --panel-hover: #24201d;
     --line: #2f2a26;
     --ink: #e8e2d9;
     --dim: #9a9086;
     --ok: #7fa66a;
+    --ok-bg: rgba(127, 166, 106, 0.15);
     --warn: #c4a24a;
     --bad: #b5654f;
+    --bad-bg: rgba(181, 101, 79, 0.15);
   }
-  * { box-sizing: border-box; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
   body {
-    margin: 0;
-    padding: 32px 16px;
     background: var(--bg);
     color: var(--ink);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font: 16px/1.6 system-ui, -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px;
   }
-  main { max-width: 760px; margin: 0 auto; }
-  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: .02em; }
-  .sub { color: var(--dim); font-size: 14px; margin-bottom: 28px; }
-  section {
+
+  main {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .screen {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+  }
+  .screen.active {
+    display: flex;
+  }
+
+  /* Панели и карточки */
+  .panel {
     background: var(--panel);
     border: 1px solid var(--line);
     border-radius: 4px;
-    padding: 18px 20px;
+    padding: 20px 24px;
     margin-bottom: 16px;
   }
-  h2 { font-size: 14px; font-weight: 600; color: var(--dim); margin: 0 0 14px;
-       text-transform: uppercase; letter-spacing: .08em; }
-  table { width: 100%; border-collapse: collapse; font-size: 15px; }
-  td { padding: 6px 0; border-bottom: 1px solid var(--line); }
-  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
-  tr:last-child td { border-bottom: 0; }
-  .ok { color: var(--ok); }
-  .warn { color: var(--warn); }
-  .bad { color: var(--bad); }
-  .note { color: var(--dim); font-size: 14px; margin-top: 12px; }
-  .card { text-align: center; padding: 24px 0; }
-  .word { font-size: 40px; margin-bottom: 6px; }
-  .reading { color: var(--dim); font-size: 18px; }
-  .meaning { font-size: 20px; margin-top: 12px; }
-  .sentence { margin-top: 18px; font-size: 18px; }
-  .sentence-ru { color: var(--dim); font-size: 15px; margin-top: 4px; }
-  button {
-    background: transparent; color: var(--ink);
-    border: 1px solid var(--line); border-radius: 3px;
-    padding: 8px 18px; font: inherit; cursor: pointer; margin-top: 16px;
+
+  /* Шапка */
+  header.site-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 24px;
   }
-  button:hover { border-color: var(--dim); }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .crest {
+    color: var(--ink);
+    flex-shrink: 0;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .sub {
+    color: var(--dim);
+    font-size: 13px;
+    letter-spacing: .02em;
+  }
+
+  /* Кнопки */
+  button {
+    font: inherit;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--bg);
+    font-weight: 600;
+    border: 1px solid var(--ink);
+    padding: 12px 24px;
+    font-size: 16px;
+  }
+  .btn-primary:hover {
+    background: #d8d1c6;
+    border-color: #d8d1c6;
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 10px 18px;
+    font-size: 14px;
+  }
+  .btn-secondary:hover {
+    border-color: var(--dim);
+    background: var(--panel-hover);
+  }
+  .btn-danger {
+    background: transparent;
+    color: var(--bad);
+    border: 1px solid rgba(181, 101, 79, 0.4);
+    padding: 6px 14px;
+    font-size: 13px;
+  }
+  .btn-danger:hover {
+    border-color: var(--bad);
+    background: var(--bad-bg);
+  }
+
+  /* Стартовый экран */
+  .banner-interrupted {
+    background: #1e1a17;
+    border: 1px solid var(--warn);
+    border-radius: 4px;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .banner-title {
+    color: var(--warn);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 4px;
+  }
+  .banner-text {
+    font-size: 15px;
+    color: var(--ink);
+  }
+
+  .actions-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 15px;
+  }
+  .stats-table td {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .stats-table td:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+  .stats-table tr:last-child td {
+    border-bottom: 0;
+  }
+
+  .storage-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-top: 12px;
+  }
+
+  /* Экран боя */
+  .battle-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 24px;
+  }
+  .battle-counter {
+    font-size: 15px;
+    font-variant-numeric: tabular-nums;
+    color: var(--dim);
+  }
+  .battle-counter b {
+    color: var(--ink);
+  }
+
+  .prompt-card {
+    text-align: center;
+    padding: 36px 16px 28px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    margin-bottom: 20px;
+  }
+  .facet-tag {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--dim);
+    margin-bottom: 14px;
+  }
+  .reading-prompt {
+    font-size: 46px;
+    line-height: 1.15;
+    font-weight: 500;
+    letter-spacing: .04em;
+    color: var(--ink);
+  }
+
+  /* Сетка 4 плиток с ответами */
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  @media (max-width: 520px) {
+    .options-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .tile-btn {
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 16px 18px;
+    font-size: 16px;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 60px;
+  }
+  .tile-btn:hover:not(:disabled) {
+    border-color: var(--dim);
+    background: var(--panel-hover);
+  }
+  .tile-btn:disabled {
+    cursor: default;
+  }
+
+  .tile-num {
+    color: var(--dim);
+    font-size: 12px;
+    font-family: monospace;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 2px 6px;
+    flex-shrink: 0;
+  }
+  .tile-text {
+    flex-grow: 1;
+    word-break: break-word;
+  }
+
+  /* Состояния выбора */
+  .tile-btn.selected-correct {
+    border-color: var(--ok);
+    background: var(--ok-bg);
+    color: #c9e6ba;
+  }
+  .tile-btn.selected-wrong {
+    border-color: var(--bad);
+    background: var(--bad-bg);
+    color: #f1aca0;
+  }
+  .tile-btn.reveal-correct {
+    border-color: var(--ok);
+    background: var(--ok-bg);
+  }
+
+  /* Контекст (показывается сразу после ответа) */
+  .context-panel {
+    background: #191614;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 20px 24px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .word-row {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+  }
+  .full-word {
+    font-size: 32px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+  .full-reading {
+    font-size: 16px;
+    color: var(--dim);
+  }
+  .full-meaning {
+    font-size: 16px;
+    color: var(--ok);
+    font-weight: 500;
+  }
+  .sentence-box {
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+  .sentence {
+    font-size: 18px;
+    line-height: 1.5;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .sentence-ru {
+    font-size: 15px;
+    line-height: 1.5;
+    color: var(--dim);
+  }
+
+  .next-action {
+    display: flex;
+    justify-content: flex-end;
+  }
+  #btn-next {
+    display: none;
+  }
+
+  /* Экран сводки */
+  .summary-card {
+    text-align: center;
+    padding: 36px 20px;
+  }
+  .summary-card h2 {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+  .summary-metrics {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    margin: 24px 0;
+  }
+  .metric-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .metric-val {
+    font-size: 36px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .metric-label {
+    font-size: 13px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
 </style>
 </head>
 <body>
 <main>
-  <h1>Осада</h1>
-  <div class="sub">Проверка каркаса. Этот экран заменяется настоящим интерфейсом на первом этапе.</div>
 
-  <section>
-    <h2>Данные</h2>
-    <table id="stats"><tr><td>загрузка…</td><td></td></tr></table>
-    <div class="note" id="dataNote"></div>
-  </section>
+  <!-- Стартовый экран -->
+  <section id="screen-start" class="screen active">
+    <header class="site-header">
+      <div class="brand">
+        <svg class="crest" viewBox="0 0 32 32" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="16" cy="16" r="14" />
+          <path d="M9 11h14M11 11v11M21 11v11M8 15h16" />
+        </svg>
+        <div>
+          <h1>Осада</h1>
+          <div class="sub">Обучающая игра · Японские слова</div>
+        </div>
+      </div>
+    </header>
 
-  <section>
-    <h2>Случайная единица</h2>
-    <div class="card" id="card">—</div>
-    <div style="text-align:center"><button id="next">Другая</button></div>
-  </section>
+    <!-- Баннер прерванного захода -->
+    <div id="interrupted-banner" class="banner-interrupted">
+      <div class="banner-title">Незавершённый заход</div>
+      <div id="interrupted-text" class="banner-text">Прерванный заход: отвечено 0 из 30</div>
+    </div>
 
-  <section>
-    <h2>Ядро</h2>
-    <table id="core"><tr><td>проверка…</td><td></td></tr></table>
-    <div class="note">
-      Полная проверка ядра — <code>npm test</code>. Здесь только признак жизни.
+    <!-- Кнопки старта/продолжения -->
+    <div class="actions-group">
+      <button id="btn-continue" type="button" class="btn-primary" style="display: none;">Продолжить</button>
+      <button id="btn-start" type="button" class="btn-primary">В бой</button>
+    </div>
+
+    <!-- Статистика -->
+    <div class="panel">
+      <table class="stats-table">
+        <tbody>
+          <tr>
+            <td>Игровой день</td>
+            <td id="stat-day">1</td>
+          </tr>
+          <tr>
+            <td>Слов в изучении</td>
+            <td id="stat-words">0</td>
+          </tr>
+          <tr>
+            <td>Очередь к повторению сегодня</td>
+            <td id="stat-due">0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Управление сохранением -->
+    <div class="panel">
+      <div class="storage-section">
+        <div>
+          <div style="font-size: 14px; font-weight: 600; color: var(--ink);">Файл сохранения</div>
+          <div style="font-size: 13px; color: var(--dim);">IndexedDB (каждый ответ сохраняется сразу)</div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button id="btn-export" type="button" class="btn-secondary">Экспорт</button>
+          <button id="btn-import" type="button" class="btn-secondary">Импорт</button>
+          <input id="input-import-file" type="file" accept=".json" style="display: none;">
+        </div>
+      </div>
     </div>
   </section>
+
+  <!-- Экран боя -->
+  <section id="screen-battle" class="screen">
+    <header class="battle-header">
+      <div class="brand">
+        <svg class="crest" viewBox="0 0 32 32" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="16" cy="16" r="14" />
+          <path d="M9 11h14M11 11v11M21 11v11M8 15h16" />
+        </svg>
+        <span style="font-size: 14px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;">Осада</span>
+      </div>
+      <div id="battle-counter" class="battle-counter">Отвечено: 0 / 30 · Верно: 0</div>
+      <button id="btn-surrender" type="button" class="btn-danger">Сдаться</button>
+    </header>
+
+    <!-- Карточка вопроса -->
+    <div class="prompt-card">
+      <div class="facet-tag">Чтение слова каной</div>
+      <div id="reading-prompt" class="reading-prompt">—</div>
+    </div>
+
+    <!-- 4 плитки с вариантами перевода -->
+    <div id="options-container" class="options-grid"></div>
+
+    <!-- Контекст (появляется сразу после ответа) -->
+    <div id="context-box" class="context-panel">
+      <div class="word-row">
+        <span id="full-word" class="full-word"></span>
+        <span id="full-reading" class="full-reading"></span>
+        <span id="full-meaning" class="full-meaning"></span>
+      </div>
+      <div class="sentence-box">
+        <div id="sentence" class="sentence"></div>
+        <div id="sentence-ru" class="sentence-ru"></div>
+      </div>
+    </div>
+
+    <!-- Кнопка перехода к следующему вопросу -->
+    <div class="next-action">
+      <button id="btn-next" type="button" class="btn-primary">Дальше (Enter ↵)</button>
+    </div>
+  </section>
+
+  <!-- Экран сводки по окончании захода -->
+  <section id="screen-summary" class="screen">
+    <div class="panel summary-card">
+      <h2>Заход завершён</h2>
+      <p style="color: var(--dim); font-size: 15px;">Все запланированные единицы захода отработаны.</p>
+
+      <div class="summary-metrics">
+        <div class="metric-item">
+          <span id="summary-answered" class="metric-val">30</span>
+          <span class="metric-label">Отвечено</span>
+        </div>
+        <div class="metric-item">
+          <span id="summary-correct" class="metric-val">0</span>
+          <span class="metric-label">Верно</span>
+        </div>
+        <div class="metric-item">
+          <span id="summary-percent" class="metric-val">0%</span>
+          <span class="metric-label">Точность</span>
+        </div>
+      </div>
+
+      <button id="btn-finish-summary" type="button" class="btn-primary">В лагерь</button>
+    </div>
+  </section>
+
 </main>
 
-<script type="module">
-import { loadContent, contentIndex, contentStats, wordsByFrequency }
-  from "./src/content/index.js";
-import { createProgress, applyAnswer, growInterval } from "./src/core/srs.js";
-import { buildSiege } from "./src/core/scheduler.js";
-import { Facet } from "./src/core/types.js";
-import { Balance } from "./src/core/balance.js";
-
-const row = (label, value, cls = "") =>
-  `<tr><td>${label}</td><td class="${cls}">${value}</td></tr>`;
-
-async function main() {
-  await loadContent("./data");
-  const s = contentStats();
-
-  document.getElementById("stats").innerHTML = [
-    row("Слов", s.words, s.words === 1497 ? "ok" : "bad"),
-    row("Иероглифов", s.kanji),
-    row("Иероглифов N5", `${s.kanjiN5WithRussian} из ${s.kanjiN5} с русским`,
-        s.kanjiN5WithRussian / s.kanjiN5 > 0.9 ? "ok" : "warn"),
-    row("Иероглифов N4", `${s.kanjiN4WithRussian} из ${s.kanjiN4} с русским`,
-        s.kanjiN4WithRussian / s.kanjiN4 > 0.9 ? "ok" : "warn"),
-    row("Кампания N4 всего", `${s.kanjiN5 + s.kanjiN4} иероглифов`),
-    row("Связано с словами", s.linkedKanji),
-  ].join("");
-
-  const need = (s.kanjiN5 - s.kanjiN5WithRussian) + (s.kanjiN4 - s.kanjiN4WithRussian);
-  document.getElementById("dataNote").textContent =
-    `Без русского значения в кампании N4 остаётся ${need} иероглифов — их предстоит перевести. ` +
-    `Уровни берутся по полю jlpt, не по kyu: kyu — старая шкала, где 4 самый лёгкий.`;
-
-  const pool = wordsByFrequency(300);
-  const show = () => {
-    const w = pool[Math.floor(Math.random() * pool.length)];
-    document.getElementById("card").innerHTML = `
-      <div class="word">${w.word}</div>
-      <div class="reading">${w.reading}</div>
-      <div class="meaning">${w.meaning_ru}</div>
-      <div class="sentence">${w.sentence}</div>
-      <div class="sentence-ru">${w.sentence_ru}</div>`;
-  };
-  document.getElementById("next").addEventListener("click", show);
-  show();
-
-  // признак жизни ядра: прогоняем одну единицу через несколько правильных
-  // ответов и смотрим, что интервал растёт и грани открываются
-  let p = createProgress("demo", "word", 0);
-  for (let i = 0; i < Balance.FACET_UNLOCK_THRESHOLD; i += 1) {
-    p = applyAnswer(p, { unitId: "demo", facet: Facet.MEANING, correct: true, elapsedMs: 1000 }, i);
-  }
-  const siege = buildSiege({ demo: p }, 0);
-  document.getElementById("core").innerHTML = [
-    row("Интервал после 3 верных", `${p.interval} дн.`, p.interval > 0 ? "ok" : "bad"),
-    row("Грань «запись» открыта", p.facets[Facet.WRITING].unlocked ? "да" : "нет",
-        p.facets[Facet.WRITING].unlocked ? "ok" : "bad"),
-    row("Рост интервала при ease 1.3", `1 → ${growInterval(1, 1.3)} дн.`,
-        growInterval(1, 1.3) > 1 ? "ok" : "bad"),
-    row("Осада собирается", Object.keys(siege).join(", "), "ok"),
-  ].join("");
-}
-
-main().catch((e) => {
-  document.getElementById("stats").innerHTML =
-    row("Ошибка", String(e.message ?? e), "bad") +
-    row("Подсказка", "запускать через run.sh или run.bat, не двойным кликом", "warn");
-});
-</script>
+<script type="module" src="./src/ui/app.js"></script>
 </body>
 </html>
