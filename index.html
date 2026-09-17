@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Осада — проверка каркаса</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>&#x5BA8;</text></svg>">
+<style>
+  :root {
+    --bg: #14110f;
+    --panel: #1c1917;
+    --line: #2f2a26;
+    --ink: #e8e2d9;
+    --dim: #9a9086;
+    --ok: #7fa66a;
+    --warn: #c4a24a;
+    --bad: #b5654f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px 16px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 600; margin: 0 0 4px; letter-spacing: .02em; }
+  .sub { color: var(--dim); font-size: 14px; margin-bottom: 28px; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+  }
+  h2 { font-size: 14px; font-weight: 600; color: var(--dim); margin: 0 0 14px;
+       text-transform: uppercase; letter-spacing: .08em; }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  td { padding: 6px 0; border-bottom: 1px solid var(--line); }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: 0; }
+  .ok { color: var(--ok); }
+  .warn { color: var(--warn); }
+  .bad { color: var(--bad); }
+  .note { color: var(--dim); font-size: 14px; margin-top: 12px; }
+  .card { text-align: center; padding: 24px 0; }
+  .word { font-size: 40px; margin-bottom: 6px; }
+  .reading { color: var(--dim); font-size: 18px; }
+  .meaning { font-size: 20px; margin-top: 12px; }
+  .sentence { margin-top: 18px; font-size: 18px; }
+  .sentence-ru { color: var(--dim); font-size: 15px; margin-top: 4px; }
+  button {
+    background: transparent; color: var(--ink);
+    border: 1px solid var(--line); border-radius: 3px;
+    padding: 8px 18px; font: inherit; cursor: pointer; margin-top: 16px;
+  }
+  button:hover { border-color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Осада</h1>
+  <div class="sub">Проверка каркаса. Этот экран заменяется настоящим интерфейсом на первом этапе.</div>
+
+  <section>
+    <h2>Данные</h2>
+    <table id="stats"><tr><td>загрузка…</td><td></td></tr></table>
+    <div class="note" id="dataNote"></div>
+  </section>
+
+  <section>
+    <h2>Случайная единица</h2>
+    <div class="card" id="card">—</div>
+    <div style="text-align:center"><button id="next">Другая</button></div>
+  </section>
+
+  <section>
+    <h2>Ядро</h2>
+    <table id="core"><tr><td>проверка…</td><td></td></tr></table>
+    <div class="note">
+      Полная проверка ядра — <code>npm test</code>. Здесь только признак жизни.
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { loadContent, contentIndex, contentStats, wordsByFrequency }
+  from "./src/content/index.js";
+import { createProgress, applyAnswer, growInterval } from "./src/core/srs.js";
+import { buildSiege } from "./src/core/scheduler.js";
+import { Facet } from "./src/core/types.js";
+import { Balance } from "./src/core/balance.js";
+
+const row = (label, value, cls = "") =>
+  `<tr><td>${label}</td><td class="${cls}">${value}</td></tr>`;
+
+async function main() {
+  await loadContent("./data");
+  const s = contentStats();
+
+  document.getElementById("stats").innerHTML = [
+    row("Слов", s.words, s.words === 1497 ? "ok" : "bad"),
+    row("Иероглифов", s.kanji),
+    row("Иероглифов N5", `${s.kanjiN5WithRussian} из ${s.kanjiN5} с русским`,
+        s.kanjiN5WithRussian / s.kanjiN5 > 0.9 ? "ok" : "warn"),
+    row("Иероглифов N4", `${s.kanjiN4WithRussian} из ${s.kanjiN4} с русским`,
+        s.kanjiN4WithRussian / s.kanjiN4 > 0.9 ? "ok" : "warn"),
+    row("Кампания N4 всего", `${s.kanjiN5 + s.kanjiN4} иероглифов`),
+    row("Связано с словами", s.linkedKanji),
+  ].join("");
+
+  const need = (s.kanjiN5 - s.kanjiN5WithRussian) + (s.kanjiN4 - s.kanjiN4WithRussian);
+  document.getElementById("dataNote").textContent =
+    `Без русского значения в кампании N4 остаётся ${need} иероглифов — их предстоит перевести. ` +
+    `Уровни берутся по полю jlpt, не по kyu: kyu — старая шкала, где 4 самый лёгкий.`;
+
+  const pool = wordsByFrequency(300);
+  const show = () => {
+    const w = pool[Math.floor(Math.random() * pool.length)];
+    document.getElementById("card").innerHTML = `
+      <div class="word">${w.word}</div>
+      <div class="reading">${w.reading}</div>
+      <div class="meaning">${w.meaning_ru}</div>
+      <div class="sentence">${w.sentence}</div>
+      <div class="sentence-ru">${w.sentence_ru}</div>`;
+  };
+  document.getElementById("next").addEventListener("click", show);
+  show();
+
+  // признак жизни ядра: прогоняем одну единицу через несколько правильных
+  // ответов и смотрим, что интервал растёт и грани открываются
+  let p = createProgress("demo", "word", 0);
+  for (let i = 0; i < Balance.FACET_UNLOCK_THRESHOLD; i += 1) {
+    p = applyAnswer(p, { unitId: "demo", facet: Facet.MEANING, correct: true, elapsedMs: 1000 }, i);
+  }
+  const siege = buildSiege({ demo: p }, 0);
+  document.getElementById("core").innerHTML = [
+    row("Интервал после 3 верных", `${p.interval} дн.`, p.interval > 0 ? "ok" : "bad"),
+    row("Грань «запись» открыта", p.facets[Facet.WRITING].unlocked ? "да" : "нет",
+        p.facets[Facet.WRITING].unlocked ? "ok" : "bad"),
+    row("Рост интервала при ease 1.3", `1 → ${growInterval(1, 1.3)} дн.`,
+        growInterval(1, 1.3) > 1 ? "ok" : "bad"),
+    row("Осада собирается", Object.keys(siege).join(", "), "ok"),
+  ].join("");
+}
+
+main().catch((e) => {
+  document.getElementById("stats").innerHTML =
+    row("Ошибка", String(e.message ?? e), "bad") +
+    row("Подсказка", "запускать через run.sh или run.bat, не двойным кликом", "warn");
+});
+</script>
+</body>
+</html>
