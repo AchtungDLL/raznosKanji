@@ -126,7 +126,7 @@ export async function startBattleSession(save, allWords) {
     day,
     currentWave: Wave.OFFICERS,
     remaining: pool,
-    stamina: 100,
+    stamina: Balance.STAMINA_START,
     answered: 0,
     correct: 0,
     surrendered: false,

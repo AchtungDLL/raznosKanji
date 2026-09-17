@@ -185,6 +185,7 @@ export const Wave = Object.freeze({
  * @property {string[]} remaining          идентификаторы единиц в текущей волне
  * @property {number}  stamina             оставшаяся выносливость героя
  * @property {number}  answered            сколько ответов дано сегодня
+ * @property {number}  correct             из них верных; нужно счётчику на экране
  * @property {boolean} surrendered         игрок нажал «сдаться»
  */
 
