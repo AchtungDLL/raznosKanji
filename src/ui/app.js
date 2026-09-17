@@ -11,6 +11,8 @@
 
 import { loadContent, wordsByFrequency } from "../content/index.js";
 import { Balance } from "../core/balance.js";
+import { gameDayOf } from "../core/day.js";
+import { buildSiege, newQuota, forecast } from "../core/scheduler.js";
 import { loadSave, saveToDb, exportSave, importSave } from "./db.js";
 import {
   startBattleSession,
@@ -50,6 +52,22 @@ const elInterruptedText = document.getElementById("interrupted-text");
 const elStatDay = document.getElementById("stat-day");
 const elStatWords = document.getElementById("stat-words");
 const elStatDue = document.getElementById("stat-due");
+
+const elStatInfantry = document.getElementById("stat-infantry");
+const elStatOfficers = document.getElementById("stat-officers");
+const elStatVeterans = document.getElementById("stat-veterans");
+const elStatQuota = document.getElementById("stat-quota");
+
+const elSliderNewPerDay = document.getElementById("slider-new-per-day");
+const elLabelNewPerDay = document.getElementById("label-new-per-day");
+const elSliderBattleLength = document.getElementById("slider-battle-length");
+const elLabelBattleLength = document.getElementById("label-battle-length");
+
+const elAdvisorForecast = document.getElementById("advisor-forecast");
+const elAdvisorWarning = document.getElementById("advisor-warning");
+
+const elBattleWaveTitle = document.getElementById("battle-wave-title");
+const elBattleWaveCount = document.getElementById("battle-wave-count");
 
 const elBattleCounter = document.getElementById("battle-counter");
 const elReadingPrompt = document.getElementById("reading-prompt");
@@ -105,15 +123,79 @@ function hasInterruptedSession(save) {
 }
 
 /**
+ * Синхронизирует текущий игровой день с реальным временем (смена в 4 утра).
+ * Если наступил новый день, вчерашняя незавершённая сессия сбрасывается.
+ * @param {SaveFile} save
+ */
+async function syncCurrentDay(save) {
+  const realDay = gameDayOf(Date.now(), save.createdAt);
+  if (realDay > save.currentDay) {
+    save.currentDay = realDay;
+    save.session = null;
+    await saveToDb(save);
+  } else if (save.currentDay !== realDay) {
+    save.currentDay = realDay;
+    await saveToDb(save);
+  }
+}
+
+/**
+ * Пересчитывает и обновляет прогноз советника и состав квоты на день.
+ */
+function updateAdvisorAndForecast() {
+  const newPerDay = currentSave.settings.newPerDay || Balance.NEW_PER_DAY_DEFAULT;
+  const day = currentSave.currentDay;
+  const fc = forecast(currentSave.progress, day, newPerDay);
+
+  if (elAdvisorForecast) {
+    elAdvisorForecast.textContent =
+      `При таком темпе через ${fc.inDays} дней в осаде будет около ${fc.expectedUnits} противников, это примерно ${fc.expectedMinutes} минут в день.`;
+  }
+
+  if (elAdvisorWarning) {
+    if (fc.expectedMinutes > 30) {
+      elAdvisorWarning.style.display = "block";
+      elAdvisorWarning.textContent =
+        `При таком темпе ежедневные повторения займут больше получаса в день (${fc.expectedMinutes} мин).`;
+    } else {
+      elAdvisorWarning.style.display = "none";
+    }
+  }
+
+  const quota = newQuota(currentSave.progress, day, newPerDay);
+  if (elStatQuota) {
+    elStatQuota.textContent = String(quota);
+  }
+}
+
+/**
  * Отрисовывает стартовый экран.
  */
-function renderStartScreen() {
+async function renderStartScreen() {
   switchScreen("start");
+  await syncCurrentDay(currentSave);
 
   const day = currentSave.currentDay;
-  elStatDay.textContent = String(day + 1); // Игровой день с 1 для удобства восприятия
+  elStatDay.textContent = String(day);
   elStatWords.textContent = String(Object.keys(currentSave.progress).length);
   elStatDue.textContent = String(countDueUnits(currentSave));
+
+  // Состав сегодняшней осады
+  const siege = buildSiege(currentSave.progress, day);
+  if (elStatInfantry) elStatInfantry.textContent = String(siege.infantry.length);
+  if (elStatOfficers) elStatOfficers.textContent = String(siege.officers.length);
+  if (elStatVeterans) elStatVeterans.textContent = String(siege.veterans.length);
+
+  // Настройки
+  const newPerDay = currentSave.settings.newPerDay || Balance.NEW_PER_DAY_DEFAULT;
+  const battleLength = currentSave.settings.battleLength || Balance.BATTLE_LENGTH_DEFAULT;
+
+  if (elSliderNewPerDay) elSliderNewPerDay.value = String(newPerDay);
+  if (elLabelNewPerDay) elLabelNewPerDay.textContent = String(newPerDay);
+  if (elSliderBattleLength) elSliderBattleLength.value = String(battleLength);
+  if (elLabelBattleLength) elLabelBattleLength.textContent = String(battleLength);
+
+  updateAdvisorAndForecast();
 
   const interrupted = hasInterruptedSession(currentSave);
   if (interrupted) {
@@ -185,6 +267,14 @@ function renderNextQuestion() {
   }
 
   updateCounter();
+
+  // Обновляем баннер текущей волны
+  if (elBattleWaveTitle && currentQuestion.stageTitle) {
+    elBattleWaveTitle.textContent = currentQuestion.stageTitle;
+  }
+  if (elBattleWaveCount) {
+    elBattleWaveCount.textContent = `Осталось: ${currentQuestion.remainingInStage}`;
+  }
 
   // Вопрос: чтение каной крупно
   elReadingPrompt.textContent = currentQuestion.prompt;
@@ -287,7 +377,7 @@ function handleNextQuestion() {
  */
 async function handleSurrender() {
   await surrenderBattle(currentSave);
-  renderStartScreen();
+  await renderStartScreen();
 }
 
 /**
@@ -295,7 +385,7 @@ async function handleSurrender() {
  */
 async function handleFinishSummary() {
   await finishBattleSession(currentSave);
-  renderStartScreen();
+  await renderStartScreen();
 }
 
 /**
@@ -332,6 +422,7 @@ async function init() {
 
     // 2. Загрузка сохранения из IndexedDB
     currentSave = await loadSave();
+    await syncCurrentDay(currentSave);
 
     // 3. Подключение обработчиков
     elBtnStart.addEventListener("click", () => startBattle(false));
@@ -340,6 +431,25 @@ async function init() {
     elBtnNext.addEventListener("click", handleNextQuestion);
     elBtnFinishSummary.addEventListener("click", handleFinishSummary);
 
+    if (elSliderNewPerDay) {
+      elSliderNewPerDay.addEventListener("input", async (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (elLabelNewPerDay) elLabelNewPerDay.textContent = String(val);
+        currentSave.settings.newPerDay = val;
+        updateAdvisorAndForecast();
+        await saveToDb(currentSave);
+      });
+    }
+
+    if (elSliderBattleLength) {
+      elSliderBattleLength.addEventListener("input", async (e) => {
+        const val = parseInt(e.target.value, 10);
+        if (elLabelBattleLength) elLabelBattleLength.textContent = String(val);
+        currentSave.settings.battleLength = val;
+        await saveToDb(currentSave);
+      });
+    }
+
     elBtnExport.addEventListener("click", () => exportSave(currentSave));
     elBtnImport.addEventListener("click", () => elFileInput.click());
     elFileInput.addEventListener("change", async (e) => {
@@ -347,7 +457,7 @@ async function init() {
       if (!file) return;
       try {
         currentSave = await importSave(file);
-        renderStartScreen();
+        await renderStartScreen();
         alert("Сохранение успешно импортировано!");
       } catch (err) {
         alert("Ошибка импорта: " + (err.message || err));
@@ -359,7 +469,7 @@ async function init() {
     window.addEventListener("keydown", handleKeyDown);
 
     // 4. Отрисовка начального экрана
-    renderStartScreen();
+    await renderStartScreen();
   } catch (err) {
     console.error("Ошибка инициализации:", err);
     document.body.innerHTML = `

@@ -40,10 +40,11 @@ export function openDb() {
  * @returns {SaveFile}
  */
 export function createNewSave() {
+  const now = Date.now();
   return {
     version: 1,
-    createdAt: Date.now(),
-    currentDay: 0,
+    createdAt: now,
+    currentDay: 1,
     dayRollsOverAtHour: Balance.DAY_ROLLOVER_HOUR,
     settings: {
       newPerDay: Balance.NEW_PER_DAY_DEFAULT,

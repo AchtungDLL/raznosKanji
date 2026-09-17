@@ -76,12 +76,20 @@ function shuffle(array) {
  */
 export async function startBattleSession(save, allWords) {
   const day = save.currentDay;
-  const quota = newQuota(save.progress, day, save.settings.newPerDay);
+
+  // Формируем осаду по ядру: пехота, офицеры, ветераны
+  const siege = buildSiege(save.progress, day);
+
+  // Новые единицы на сегодня по квоте
+  const quota = newQuota(
+    save.progress,
+    day,
+    save.settings.newPerDay || Balance.NEW_PER_DAY_DEFAULT,
+  );
 
   const existingIds = new Set(Object.keys(save.progress));
   const newUnitIds = [];
 
-  // Добавляем новые единицы по квоте
   if (quota > 0) {
     for (const w of allWords) {
       if (!existingIds.has(w.id)) {
@@ -93,39 +101,49 @@ export async function startBattleSession(save, allWords) {
     }
   }
 
-  // Собираем повторения из осады
-  const siege = buildSiege(save.progress, day);
-  const siegeUnits = [
-    ...siege.officers,
-    ...siege.veterans,
-    ...siege.infantry,
-  ];
+  // Собираем любые единицы, которые уже в изучении (interval === 0)
+  const existingLearningIds = Object.keys(save.progress).filter(
+    (id) => save.progress[id].interval === 0 && !newUnitIds.includes(id),
+  );
+  const learningQueue = [...newUnitIds, ...existingLearningIds];
 
-  // Объединяем новые единицы и повторения
-  let pool = [...newUnitIds, ...siegeUnits];
+  // Определяем начальную непустую стадию:
+  // 1. Пехота (разгон)
+  // 2. Офицеры (очередь на сегодня)
+  // 3. Ветераны (трудное)
+  // 4. Пополнение (новые единицы)
+  let initialStage = "infantry";
+  let initialWave = Wave.INFANTRY;
+  let initialRemaining = [...siege.infantry];
 
-  // Если пул пуст (всё выучено или день 0 без повторений), берём уже имеющиеся в прогрессе
-  if (pool.length === 0) {
-    pool = Object.keys(save.progress);
+  if (initialRemaining.length === 0) {
+    initialStage = "officers";
+    initialWave = Wave.OFFICERS;
+    initialRemaining = [...siege.officers];
   }
-
-  // Если совсем ничего нет в прогрессе, берём первые слова по частотности
-  if (pool.length === 0) {
-    const fallback = allWords.slice(0, save.settings.newPerDay);
-    for (const w of fallback) {
-      save.progress[w.id] = createProgress(w.id, "word", day);
-      pool.push(w.id);
-    }
+  if (initialRemaining.length === 0) {
+    initialStage = "veterans";
+    initialWave = Wave.VETERANS;
+    initialRemaining = [...siege.veterans];
   }
-
-  // Перемешиваем пул для равномерного чередования
-  pool = shuffle(pool);
+  if (initialRemaining.length === 0) {
+    initialStage = "new";
+    initialWave = Wave.OFFICERS;
+    initialRemaining = [...learningQueue];
+  }
 
   /** @type {DaySession} */
   const session = {
     day,
-    currentWave: Wave.OFFICERS,
-    remaining: pool,
+    currentWave: initialWave,
+    stage: initialStage,
+    remaining: initialRemaining,
+    queue: {
+      infantry: [...siege.infantry],
+      officers: [...siege.officers],
+      veterans: [...siege.veterans],
+      newUnits: [...learningQueue],
+    },
     stamina: Balance.STAMINA_START,
     answered: 0,
     correct: 0,
@@ -139,12 +157,12 @@ export async function startBattleSession(save, allWords) {
 
 /**
  * Возвращает текущий вопрос захода.
- * Если очередь опустела, но лимит захода не достигнут, пополняет очередь из прогресса.
- * Если заход завершён, возвращает null.
+ * Проводит игрока строго по волнам осады: пехота -> офицеры -> ветераны -> новые единицы.
+ * Если материал кончился или достигнут лимит захода, возвращает null.
  *
  * @param {SaveFile} save
  * @param {WordUnit[]} allWords
- * @returns {{ unitId: string, word: WordUnit, prompt: string, expected: string, options: string[] } | null}
+ * @returns {{ unitId: string, word: WordUnit, prompt: string, expected: string, options: string[], wave: string, stage: string, stageTitle: string, remainingInStage: number } | null}
  */
 export function getCurrentQuestion(save, allWords) {
   const session = save.session;
@@ -155,19 +173,37 @@ export function getCurrentQuestion(save, allWords) {
     return null; // лимит захода исчерпан
   }
 
-  // Если единицы кончились, пополняем очередь единицами из прогресса для закрепления
-  if (!session.remaining || session.remaining.length === 0) {
-    let pool = Object.keys(save.progress);
-    if (pool.length === 0) {
-      pool = allWords.slice(0, 8).map((w) => w.id);
+  if (!session.stage) {
+    session.stage = session.currentWave || "officers";
+  }
+
+  // Переход между волнами при опустошении текущей очереди
+  while (!session.remaining || session.remaining.length === 0) {
+    if (session.stage === "infantry") {
+      session.stage = "officers";
+      session.currentWave = Wave.OFFICERS;
+      session.remaining = session.queue?.officers ? [...session.queue.officers] : [];
+    } else if (session.stage === "officers") {
+      session.stage = "veterans";
+      session.currentWave = Wave.VETERANS;
+      session.remaining = session.queue?.veterans ? [...session.queue.veterans] : [];
+    } else if (session.stage === "veterans") {
+      session.stage = "new";
+      session.currentWave = Wave.OFFICERS;
+      session.remaining = session.queue?.newUnits ? [...session.queue.newUnits] : [];
+    } else {
+      // Все стадии осады и новые единицы пройдены — материал кончился!
+      return null;
     }
-    session.remaining = shuffle(pool);
+  }
+
+  if (!session.remaining || session.remaining.length === 0) {
+    return null;
   }
 
   const unitId = session.remaining[0];
   const word = allWords.find((w) => w.id === unitId);
   if (!word) {
-    // Если по какой-то причине ID не найден в колоде, пропускаем
     session.remaining.shift();
     return getCurrentQuestion(save, allWords);
   }
@@ -175,12 +211,23 @@ export function getCurrentQuestion(save, allWords) {
   const distractors = pickDistractors(allWords, word, 3);
   const options = shuffle([word.meaning_ru.trim(), ...distractors]);
 
+  const STAGE_TITLES = {
+    infantry: "Волна 1: Пехота · Разгон",
+    officers: "Волна 2: Офицеры · Очередь на сегодня",
+    veterans: "Волна 3: Ветераны · Трудное",
+    new: "Пополнение · Новые слова",
+  };
+
   return {
     unitId: word.id,
     word,
     prompt: word.reading,
     expected: word.meaning_ru.trim(),
     options,
+    wave: session.currentWave,
+    stage: session.stage,
+    stageTitle: STAGE_TITLES[session.stage] || "Осада",
+    remainingInStage: session.remaining.length,
   };
 }
 
@@ -237,9 +284,13 @@ export async function submitAnswer(
     if (session.remaining && session.remaining.length > 0) {
       session.remaining.shift();
     }
-    // При ошибке возвращаем единицу в хвост очереди для повторения в текущем заходе
-    if (!isCorrect) {
-      session.remaining.push(unitId);
+    // В фазе изучения новых единиц (stage === "new"):
+    // если единица ещё не выпустилась (interval === 0), она остаётся в сегодняшней очереди
+    if (session.stage === "new") {
+      const p = save.progress[unitId];
+      if (p && p.interval === 0) {
+        session.remaining.push(unitId);
+      }
     }
   }
 

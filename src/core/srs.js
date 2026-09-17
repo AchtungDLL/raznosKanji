@@ -56,17 +56,41 @@ export function applyAnswer(p, result, day) {
   const stat = next.facets[result.facet];
   stat.total += 1;
 
-  if (result.correct) {
-    stat.correct += 1;
-    next.interval = growInterval(next.interval, next.ease);
-    next.dueDay = day + next.interval;
+  if (next.interval === 0) {
+    if (result.correct) {
+      stat.correct += 1;
+      next.learningStep += 1;
+      if (next.learningStep >= Balance.LEARNING_STEPS) {
+        next.interval =
+          next.lapses > 0
+            ? Balance.GRADUATING_INTERVAL_AFTER_LAPSE_DAYS
+            : Balance.GRADUATING_INTERVAL_DAYS;
+        next.dueDay = day + next.interval;
+        next.learningStep = 0;
+      } else {
+        next.dueDay = day;
+      }
+    } else {
+      stat.correct = 0;
+      next.learningStep = 0;
+      next.lapses += 1;
+      next.lastLapseDay = day;
+      next.ease = Math.max(Balance.MIN_EASE, next.ease - Balance.EASE_PENALTY);
+      next.dueDay = day;
+    }
   } else {
-    stat.correct = 0;
-    next.lapses += 1;
-    next.lastLapseDay = day;
-    next.ease = Math.max(Balance.MIN_EASE, next.ease - Balance.EASE_PENALTY);
-    next.interval = Math.max(1, Math.round(next.interval * Balance.LAPSE_MULTIPLIER));
-    next.dueDay = day + next.interval;
+    if (result.correct) {
+      stat.correct += 1;
+      next.interval = growInterval(next.interval, next.ease);
+      next.dueDay = day + next.interval;
+    } else {
+      stat.correct = 0;
+      next.lapses += 1;
+      next.lastLapseDay = day;
+      next.ease = Math.max(Balance.MIN_EASE, next.ease - Balance.EASE_PENALTY);
+      next.interval = Math.max(1, Math.round(next.interval * Balance.LAPSE_MULTIPLIER));
+      next.dueDay = day + next.interval;
+    }
   }
 
   next.reps += 1;

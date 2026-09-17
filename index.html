@@ -207,6 +207,82 @@
     color: var(--ink);
   }
 
+  /* Баннер волны осады */
+  .battle-wave-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 10px 16px;
+    margin-bottom: 16px;
+  }
+  .battle-wave-title {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--ink);
+  }
+  .battle-wave-count {
+    font-size: 13px;
+    color: var(--dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Советник и настройки */
+  .slider-row {
+    margin-bottom: 14px;
+  }
+  .slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+    font-size: 14px;
+  }
+  .slider-header span:last-child {
+    font-weight: 600;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--ink);
+    cursor: pointer;
+    height: 6px;
+    background: var(--line);
+    border-radius: 3px;
+  }
+  .advisor-box {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 14px 16px;
+    margin-top: 16px;
+  }
+  .advisor-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--dim);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+  .advisor-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink);
+  }
+  .advisor-warning {
+    display: none;
+    font-size: 13px;
+    color: var(--warn);
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+
   .prompt-card {
     text-align: center;
     padding: 36px 16px 28px;
@@ -432,6 +508,66 @@
       </table>
     </div>
 
+    <!-- Состав сегодняшней осады -->
+    <div class="panel">
+      <div style="font-size: 13px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 12px;">
+        Состав сегодняшней осады
+      </div>
+      <table class="stats-table">
+        <tbody>
+          <tr>
+            <td>Пехота (разгон, вне срока)</td>
+            <td id="stat-infantry">0</td>
+          </tr>
+          <tr>
+            <td>Офицеры (очередь на сегодня)</td>
+            <td id="stat-officers">0</td>
+          </tr>
+          <tr>
+            <td>Ветераны (трудное, недавние срывы)</td>
+            <td id="stat-veterans">0</td>
+          </tr>
+          <tr>
+            <td>Пополнение (новые единицы по квоте)</td>
+            <td id="stat-quota">0</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Настройки захода и советник -->
+    <div class="panel">
+      <div style="font-size: 13px; font-weight: 600; color: var(--dim); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 16px;">
+        Настройки захода и советник
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Новых слов в день</span>
+          <span id="label-new-per-day">8</span>
+        </div>
+        <input id="slider-new-per-day" type="range" min="3" max="20" value="8">
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-header">
+          <span>Длина захода (ответов за раз)</span>
+          <span id="label-battle-length">30</span>
+        </div>
+        <input id="slider-battle-length" type="range" min="10" max="60" step="5" value="30">
+      </div>
+
+      <div class="advisor-box">
+        <div class="advisor-label">Советник по нагрузке</div>
+        <div id="advisor-forecast" class="advisor-text">
+          При таком темпе через 14 дней в осаде будет около 0 противников, это примерно 0 минут в день.
+        </div>
+        <div id="advisor-warning" class="advisor-warning">
+          При таком темпе ежедневные повторения займут больше получаса в день.
+        </div>
+      </div>
+    </div>
+
     <!-- Управление сохранением -->
     <div class="panel">
       <div class="storage-section">
@@ -461,6 +597,12 @@
       <div id="battle-counter" class="battle-counter">Отвечено: 0 / 30 · Верно: 0</div>
       <button id="btn-surrender" type="button" class="btn-danger">Сдаться</button>
     </header>
+
+    <!-- Карточка волны осады -->
+    <div id="battle-wave-banner" class="battle-wave-banner">
+      <span id="battle-wave-title" class="battle-wave-title">Волна 1: Пехота · Разгон</span>
+      <span id="battle-wave-count" class="battle-wave-count">Осталось: 0</span>
+    </div>
 
     <!-- Карточка вопроса -->
     <div class="prompt-card">
