@@ -112,7 +112,9 @@ export const Facet = Object.freeze({
  * @typedef {Object} UnitProgress
  * @property {string}  unitId
  * @property {"word"|"kanji"} kind
- * @property {number}  interval        текущий интервал в днях; 0 — новая
+ * @property {number}  interval        текущий интервал в днях; 0 — ещё в изучении
+ * @property {number}  learningStep    сколько шагов изучения пройдено подряд;
+ *                                     имеет смысл только пока interval === 0
  * @property {number}  ease            коэффициент лёгкости, старт 2.5
  * @property {number}  dueDay          номер игрового дня, когда спрашивать
  * @property {number}  lapses          сколько раз срывалась за всю историю
@@ -202,7 +204,9 @@ export const Wave = Object.freeze({
  * @typedef {Object} SaveFile
  * @property {1}       version
  * @property {number}  createdAt          отметка времени создания
- * @property {number}  currentDay         номер игрового дня
+ * @property {number}  currentDay         номер игрового дня; вычисляется из
+ *                                       реального времени и createdAt,
+ *                                       а не увеличивается вручную
  * @property {number}  dayRollsOverAtHour  час смены суток; по решению заказчика 4
  * @property {Settings} settings
  * @property {Record<string, UnitProgress>} progress

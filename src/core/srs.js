@@ -26,6 +26,7 @@ export function createProgress(unitId, kind, day) {
     unitId,
     kind,
     interval: 0,
+    learningStep: 0,
     ease: Balance.START_EASE,
     dueDay: day,
     lapses: 0,
