@@ -28,6 +28,28 @@ rem Change the two values below if you want a different name or address.
 git config user.name >nul 2>nul || git config user.name "AchtungDLL"
 git config user.email >nul 2>nul || git config user.email "yumenoshinshi132341@gmail.com"
 
+rem Never open an editor: a hidden editor window looks like a freeze.
+set "GIT_EDITOR=true"
+set "GIT_TERMINAL_PROMPT=1"
+
+rem Finish an interrupted rebase before doing anything else.
+if exist ".git\rebase-merge" goto resume
+if exist ".git\rebase-apply" goto resume
+goto staging
+
+:resume
+echo Unfinished rebase found, finishing it...
+git rebase --continue
+if errorlevel 1 (
+  echo.
+  echo Could not finish the rebase automatically.
+  echo Open a terminal here and run: git status
+  pause
+  exit /b 1
+)
+goto push
+
+:staging
 echo Staging files...
 git add -A
 if errorlevel 1 goto fail
@@ -55,6 +77,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
+:push
 echo Pushing...
 git push -u origin main
 if errorlevel 1 goto fail
